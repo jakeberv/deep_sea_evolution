@@ -6,7 +6,7 @@
 Author details:
 Amelia K. Weiss (1), Jacob S. Berv (2,3)
 
-Corresponding author: Amelia K. Weiss, akw73@cornell.edu
+Corresponding author: Amelia K. Weiss ameliakw411@gmail.com
 
 Author affiliations:
 
