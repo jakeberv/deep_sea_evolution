@@ -19,7 +19,7 @@ File descriptions:
 **Mytilidae.R**
 * This R script contains the code for the primary set of analyses for bivalves.
 
-*Siboglinidae_no_Fren.R**
+*Siboglinidae_no_Fren.R*
 * This R script contains the code for the primary set of analyses for tubeworms.
 
 **functions.R**
