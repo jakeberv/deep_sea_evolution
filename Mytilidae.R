@@ -91,16 +91,16 @@ names(CO1) <- SequenceNames #assign new names
 {
 CO1_ML.unconstrained<-read.tree("/Users/cotinga/jsb439@cornell.edu/amelia-bivalves/bivalves/2022/alltax/unconstrained/unconstrained.treefile")
 CO1_ML.constrained<-read.tree("/Users/cotinga/jsb439@cornell.edu/amelia-bivalves/bivalves/2022/alltax/constrained/constrained.treefile")
+CO1_ML.constrained.boottrees<-read.tree("/Users/cotinga/jsb439@cornell.edu/amelia-bivalves/bivalves/2022/alltax/constrained_fullboot/constrained.boottrees")
+CO1_ML.unconstrained.boottrees<-read.tree("/Users/cotinga/jsb439@cornell.edu/amelia-bivalves/bivalves/2022/alltax/unconstrained_fullboot/partfile.txt.boottrees")
 
 #deep sea only
 CO1_ML.unconstrained.deep<-read.tree("/Users/cotinga/jsb439@cornell.edu/amelia-bivalves/bivalves/2022/deepsea/unconstrained/unconstrained.treefile")
 CO1_ML.constrained.deep<-read.tree("/Users/cotinga/jsb439@cornell.edu/amelia-bivalves/bivalves/2022/deepsea/constrained/constrained.treefile")
 
-
 #sort(SequenceNames)==sort(CO1_ML.untrimmed$tip.label)
 #sort(SequenceNames)[70]
 #sort(CO1_ML$tip.label)[70]
-
 
 }
 
@@ -345,7 +345,6 @@ data<-data[prunetree.shallow$tip.label,]
     
 #plot(log(y.constrained) ~ log(y.unconstrained))
 
-
 #congruification 
 {
 #congruification with lorien calibrations (for phylogenetic anova)
@@ -401,7 +400,6 @@ prunetree.shallow.time<-ladderize(prunetree.shallow.time, right=F)
 #par(new=T)
 #plot.phylo(prunetree.shallow.time, cex=0.01, no.margin=F, direction='upwards')
 #axisPhylo(side=4)
-
 
 #prunetree.shallow.time<-read.tree('~/jsb439@cornell.edu/amelia-bivalves/approxcalib.tre')
 #plot(prunetree.shallow.time, cex=0.5)
@@ -531,7 +529,6 @@ traitRateRes3.bayes<- c(rep(-10,42), traitRateRes3.bayes)
 
 }
 
-
 #set up simmap visualizations to show the trait distributions
 {
 traitRate1.simmap<-make.simmap(traitRate1,setNames(trait1$trait, rownames(trait1)),
@@ -546,7 +543,6 @@ traitRate3.simmap<-make.simmap(traitRate3,setNames(trait3$trait, rownames(trait3
                                model="ARD", nsim=100)
 traitRate3.simmap.obj<-densityMap(traitRate3.simmap,states=levels(setNames(trait3$trait, rownames(trait3)))[2:1],plot=FALSE)
 }
-
 
 #code to generate traitRate plots
 
@@ -650,6 +646,12 @@ pdf(file="traitRate_bivalvesCO1.pdf", height=4, width = 8.5)
 }
 dev.off()
 
+#what % of significant sites are first or second codon positions.
+mean(c(
+1/sum(traitRateRes1.bayes >= 1),
+6/sum(traitRateRes2.bayes >= 1),
+5/sum(traitRateRes3.bayes >= 1)
+))
 
 # ..." most of the sites which are implicated reflect third codon positions"
 # "implying rate differences are mostly due to neutral processes"
@@ -705,9 +707,9 @@ prunetree.constrained.time.outlier.con<-drop.tip(prunetree.constrained.time,  pr
 #uses the 'time calibrated tree' 
 #run phylogenetic anovas
 {
-  phyl.aov.constrained <- phylANOVA(prunetree.constrained.time, x = x, y = log(y.constrained), nsim=10000, posthoc=T)
-  
-  phyl.aov.unconstrained <- phylANOVA(prunetree.constrained.time, x = x, y = log(y.unconstrained), nsim=10000, posthoc=T)
+  phyl.aov.constrained <- phylANOVA(prunetree.constrained.time, x = x, y = log(y.constrained), nsim=10000, posthoc=T, p.adj = 'BH')
+
+  phyl.aov.unconstrained <- phylANOVA(prunetree.constrained.time, x = x, y = log(y.unconstrained), nsim=10000, posthoc=T, p.adj = 'BH')
   
   phyl.aov.unconstrained.outlier <- phylANOVA(prunetree.constrained.time.outlier.uncon, x = setNames(anova.data.unconstrained$habitat, anova.data.unconstrained$species), y = (setNames(anova.data.unconstrained$unconstrained, anova.data.unconstrained$species)), nsim=10000, posthoc=T)
   
@@ -746,11 +748,50 @@ prunetree.constrained.time.outlier.con<-drop.tip(prunetree.constrained.time,  pr
 }
 
 
+#testFitchBeintema(prunetree.constrained.deep)
+#checking for node density artifact
+path_lengths <- diag(vcv(prunetree.constrained.deep))
+node_paths <- nodepath(prunetree.constrained.deep)
+node_counts <- sapply(node_paths, length) - 1
+
+node_data <- data.frame(
+  NodeCounts = node_counts,  # x variable (speciation events from root)
+  TotalPathLength = path_lengths  # y variable (genetic distance to root)
+)
+
+plot(node_data$TotalPathLength ~ node_data$NodeCounts)
+abline(lm(node_data$TotalPathLength ~ node_data$NodeCounts))
+summary(lm(node_data$TotalPathLength ~ node_data$NodeCounts))
+
+# Call:
+#   lm(formula = node_data$TotalPathLength ~ node_data$NodeCounts)
+# 
+# Residuals:
+#   Min       1Q   Median       3Q      Max 
+# -0.31179 -0.09642 -0.04230  0.08771  0.30750 
+# 
+# Coefficients:
+#   Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)           0.890898   0.041145  21.653   <2e-16 ***
+#   node_data$NodeCounts -0.003354   0.003539  -0.948    0.345    
+# ---
+#   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# 
+# Residual standard error: 0.1281 on 106 degrees of freedom
+# Multiple R-squared:  0.008401,	Adjusted R-squared:  -0.0009537 
+# F-statistic: 0.8981 on 1 and 106 DF,  p-value: 0.3455
+
+
+
+#testFitchBeintema(prunetree.unconstrained)
+#testFitchBeintemaNLME(prunetree.unconstrained)
+
+
+
 # plot(prunetree.shallow.time)
 # #uses the 'time calibrated tree' 
 # phyl.aov <- phylANOVA(prunetree.shallow.time, x = x, y = log(y), nsim=10000, posthoc=T)
 # phyl.aov
-
 
 
 # 
@@ -808,12 +849,31 @@ pglsdata$pch <- ifelse(is.na(pglsdata$size),  23 , 21)
 #fill in missing sizes with BM
 size_recon<-pglsdata[,c("species", "size")]
 size_recon$size<-log(size_recon$size)
+size_recon.bm<-phylopars(trait_data=size_recon, tree=prunetree.constrained.time, model = 'BM')
+size_recon.ou<-phylopars(trait_data=size_recon, tree=prunetree.constrained.time, model = 'OU')
+
+AIC(size_recon.bm)
+AIC(size_recon.ou)
+
 size_recon<-phylopars(trait_data=size_recon, tree=prunetree.constrained.time)$anc_recon
 size_recon<-size_recon[1:length(prunetree.constrained.time$tip.label)]
 size_recon<-setNames(size_recon, prunetree.constrained.time$tip.label)
 size_recon<-exp(size_recon)
 
+bmvou<-lm(size_recon.bm$anc_recon[1:length(prunetree.constrained.time$tip.label)][is.na(pglsdata$size)] ~ size_recon.ou$anc_recon[1:length(prunetree.constrained.time$tip.label)][is.na(pglsdata$size)])
+cor(size_recon.bm$anc_recon[1:length(prunetree.constrained.time$tip.label)][is.na(pglsdata$size)], size_recon.ou$anc_recon[1:length(prunetree.constrained.time$tip.label)][is.na(pglsdata$size)])
+plot(size_recon.bm$anc_recon[1:length(prunetree.constrained.time$tip.label)][is.na(pglsdata$size)] ~ size_recon.ou$anc_recon[1:length(prunetree.constrained.time$tip.label)][is.na(pglsdata$size)])
+
 #write.table(pglsdata, file = 'mytilid.txt', sep = ',', quote = F)
+##possibly redo with OU size model
+
+#write output
+recon_output<-data.frame(size = size_recon.bm$anc_recon[1:length(prunetree.constrained.time$tip.label)], var = size_recon.bm$anc_var[1:length(prunetree.constrained.time$tip.label)])
+#estimate_mean_ci(means=recon_output$size, variances = recon_output$var, sample_size = 10)
+rownames(recon_output) <- prunetree.constrained.time$tip.label
+recon_output$var[recon_output$var == 0] <- NA #replace zeros with NA
+#write.table(recon_output, file='mytilid_size.txt', quote = F, sep = '\t', row.names = T, col.names = T)
+
 
 #colors for OF, Seep, vent, in this order
 #pglsdata$cols <- c(rep('blue', 47), rep('lightblue',26), rep('grey', 23))
@@ -975,9 +1035,9 @@ tmp<-pd.ARD$ace#[-198,]
   #get rate estimates
   #anc_rates<-getRates(trees=c(TimeTree.simmap.habitat.drop[[1]], prunetree.shallow))
   anc_sub_site <-
-    get_matched_edgelengths(trees = c(TimeTree.simmap.habitat.drop[[1]], prunetree.shallow))[, 2]
+    get_matched_edgelengths(trees = c(as.phylo(TimeTree.simmap.habitat.drop[[1]]), prunetree.shallow))[, 2]
   
-  tiprates<-get_matched_edgelengths(trees = c(TimeTree.simmap.habitat.drop[[1]], prunetree.shallow))
+  tiprates<-get_matched_edgelengths(trees = c(as.phylo(TimeTree.simmap.habitat.drop[[1]]), prunetree.shallow))
   tiprates<-tiprates[,2]/tiprates[,1]
   
   #tiprates2<-terminalLengths(prunetree.shallow)[TimeTree.simmap.habitat.drop[[1]]$tip.label]/terminalLengths(TimeTree.simmap.habitat.drop[[1]])
@@ -1170,7 +1230,6 @@ dev.off()
 # }
 
 
-
 #set up phylomorphospace
 
 #some plotting
@@ -1247,6 +1306,18 @@ qqnorm(model,abline = c(0,1))
 predictmeans::residplot(model)
 tmp$bootconfint95
 
+#trying with only taxa with non-missing data
+tmp<-phylolm::phylolm(r2t.log ~ size.log, data = pglsdata,  phy= prunetree.constrained.time, boot=1000)
+plot(tmp$residuals ~ log.size, data = Z.names[,c(-4)])
+plot(tmp)
+qqnorm(model,abline = c(0,1))
+predictmeans::residplot(model)
+tmp$bootconfint95
+
+require(diverge)
+require(boot)
+sisters<-analyze_sister_pairs(tree = prunetree.constrained.time, data = Z.names, trait1 = 'log.r2t', trait2='log.size', useAbsolute = F)
+#run the sister pair analysis on constrained and unconstrained datasets
 
 #testing
 {#testing added variable plots
@@ -1519,6 +1590,8 @@ tmp$bootconfint95
   
 }
 
+
+
 # 
 # 
 # ####testing spreading rate
@@ -1545,7 +1618,6 @@ tmp$bootconfint95
 # #uses the 'time calibrated tree' 
 # phyl.aov <- phylANOVA(prunetree.shallow.time, x = tmp$rate_cat, y = y , nsim=10000, posthoc=T, p.adj='none')
 # phyl.aov
-
 
 
 #plotting phylogram with dots
@@ -2126,6 +2198,32 @@ phyl.aov.unconstrained
 #boxplot(size~habitat, data=brmsdata)
 phyl.aov.size<-phylANOVA(tree=prunetree.shallow.time, x=setNames(brmsdata$habitat, rownames(brmsdata)), y= setNames(brmsdata$size, rownames(brmsdata)))
 brmsdata$habitat<-factor(brmsdata$habitat, levels=c("OF", "Vent", "Seep"))
+# 
+# > phyl.aov.size
+# ANOVA table: Phylogenetic ANOVA
+# 
+# Response: y
+# Sum Sq   Mean Sq    F value Pr(>F)
+# x        89.72147 44.860735 105.470669  0.001
+# Residual 40.83250  0.425338                  
+# 
+# P-value based on simulation.
+# ---------
+#   
+#   Pairwise posthoc test using method = "holm"
+# 
+# Pairwise t-values:
+#   OF       Seep       Vent
+# OF    0.00000 -11.522380 -12.335450
+# Seep 11.52238   0.000000  -1.759585
+# Vent 12.33545   1.759585   0.000000
+# 
+# Pairwise corrected P-values:
+#   OF  Seep  Vent
+# OF   1.000 0.003 0.003
+# Seep 0.003 1.000 0.353
+# Vent 0.003 0.353 1.000
+# ---------
 
 {
   pp <-
@@ -2167,7 +2265,6 @@ brmsdata$habitat<-factor(brmsdata$habitat, levels=c("OF", "Vent", "Seep"))
   
   dev.off()
 }
-
 
 # {
 #   pp <- ggplot(brmsdata, aes(habitat, size)) + geom_boxplot() #+
@@ -2275,4 +2372,14 @@ brmsdata$habitat<-factor(brmsdata$habitat, levels=c("OF", "Vent", "Seep"))
 # plot(bayes.ancova1)
 # plot(conditional_effects(bayes.ancova1))
 # 
+
+## checking variances of bootstrap trees
+fit<-lm(log(compute_summary_stats(CO1_ML.constrained.boottrees)$Mean)~log(compute_summary_stats(CO1_ML.constrained)$Mean))
+plot(log(compute_summary_stats(CO1_ML.constrained.boottrees)$Mean)~log(compute_summary_stats(CO1_ML.constrained)$Mean))
+
+fit<-lm(log(compute_summary_stats(CO1_ML.unconstrained.boottrees)$Mean)~log(compute_summary_stats(CO1_ML.unconstrained)$Mean))
+plot(log(compute_summary_stats(CO1_ML.unconstrained.boottrees)$Mean)~log(compute_summary_stats(CO1_ML.unconstrained)$Mean))
+summary(fit)
+
+median(compute_summary_stats(CO1_ML.constrained.boottrees)$CV)
 

@@ -252,8 +252,6 @@ gls.ci<-function (Y, X, Sigma)
 }
 
 
-
-
 #identify descendant node number for a given edge number
 node_indices_edge<-function(tree, edges){
   edgetable<-tree$edge
@@ -264,7 +262,6 @@ node_indices_edge<-function(tree, edges){
   }
   return(unlist(result))
 }
-
 
 
 anova.pgls.fixed <- function (object) 
@@ -532,10 +529,278 @@ terminalLengths<-function(tree){
   return(edge.lengths)
 }
 
-
 #cv function
 cv <-  function(data) {
   
   return(sd(data) / mean(data) * 100)
 
+}
+
+#root to tip variance function (GPT4)
+compute_summary_stats <- function(tree_input) {
+  # Check if input is a single tree or a list of trees
+  if (class(tree_input) == "phylo") {
+    # Single tree
+    if (is.null(tree_input$edge.length)) {
+      stop("The tree has no branch lengths.")
+    }
+    # Compute r2t and sort by tip labels
+    r2t <- as.data.frame(diag(vcv.phylo(tree_input)), row.names = tree_input$tip.label)
+    r2t <- r2t[order(row.names(r2t)), , drop = FALSE]  # Sort by row names
+    names(r2t) <- "Mean"  # Label the column as 'Mean'
+    return(r2t)
+  } else if (is.list(tree_input) && all(sapply(tree_input, inherits, "phylo"))) {
+    # List of trees
+    if (any(sapply(tree_input, function(tree) is.null(tree$edge.length)))) {
+      stop("One or more trees have no branch lengths.")
+    }
+    
+    # Check that all trees have the same set of tip labels
+    reference_labels <- sort(tree_input[[1]]$tip.label)
+    if (!all(sapply(tree_input, function(tree) all(sort(tree$tip.label) == reference_labels)))) {
+      stop("Not all trees have the same set of tip labels.")
+    }
+    
+    # Process each tree, compute r2t, and sort by tip labels
+    r2t_list <- lapply(tree_input, function(tree) {
+      r2t <- as.data.frame(diag(vcv.phylo(tree)), row.names = tree$tip.label)
+      r2t[order(row.names(r2t)), , drop = FALSE]  # Sort by row names
+    })
+    
+    # Assume the row names are now aligned, use them from the first sorted data frame
+    row_names <- rownames(r2t_list[[1]])
+    
+    # Calculate summary statistics for each observation
+    summary_stats <- lapply(seq_along(row_names), function(index) {
+      row_values <- sapply(r2t_list, function(df) df[index, 1])
+      list(
+        Mean = mean(row_values, na.rm = TRUE),
+        Median = median(row_values, na.rm = TRUE),
+        SD = sd(row_values, na.rm = TRUE),
+        Min = min(row_values, na.rm = TRUE),
+        Max = max(row_values, na.rm = TRUE),
+        Variance = var(row_values, na.rm = TRUE),
+        CV = sd(row_values, na.rm = TRUE) / mean(row_values, na.rm = TRUE)
+      )
+    })
+    
+    summary_stats_df <- do.call(rbind, lapply(summary_stats, function(x) as.data.frame(t(unlist(x)))))
+    rownames(summary_stats_df) <- row_names
+    
+    return(summary_stats_df)
+  } else {
+    stop("Input should be a single tree or a list of trees.")
   }
+}
+
+# Function definition -- sister pair analysis with plotting
+analyze_sister_pairs <- function(tree, data, trait1, trait2, useAbsolute = TRUE, numBootstraps = 1000) {
+  # Extract sister pairs from the tree
+  sisters <- extract_sisters(tree = tree)
+
+  # # Assuming you have a data frame 'sister_pairs' with columns 'sp1' and 'sp2'
+  # distances <- sapply(1:nrow(sisters), function(i) {
+  #   sp1 <- sisters$sp1[i]
+  #   sp2 <- sisters$sp2[i]
+  #   fastDist(tree, sp1, sp2)
+  # })
+  # 
+  # # Add distances to the sister pairs data frame
+  # sister_pairs$branch_length <- distances
+  
+  # Preallocate columns for differences to ensure efficiency
+  n <- nrow(sisters)
+  diff_trait1 <- numeric(n)
+  diff_trait2 <- numeric(n)
+  
+  # Initialize an index for storing rows with complete data
+  valid_indices <- logical(n)
+  
+  # Loop through each pair and calculate differences
+  for (i in 1:n) {
+    sp1_data <- data[data$species == sisters$sp1[i], ]
+    sp2_data <- data[data$species == sisters$sp2[i], ]
+    if (nrow(sp1_data) == 1 && nrow(sp2_data) == 1) {
+      diff_trait1[i] <- ifelse(useAbsolute, abs(sp1_data[[trait1]] - sp2_data[[trait1]]), sp1_data[[trait1]] - sp2_data[[trait1]])
+      diff_trait2[i] <- ifelse(useAbsolute, abs(sp1_data[[trait2]] - sp2_data[[trait2]]), sp1_data[[trait2]] - sp2_data[[trait2]])
+      valid_indices[i] <- TRUE
+    }
+  }
+  
+  filtered_sisters <- sisters[valid_indices, ]
+  filtered_sisters$diff_trait1 <- diff_trait1[valid_indices]
+  filtered_sisters$diff_trait2 <- diff_trait2[valid_indices]
+  
+  # Regression and bootstrapping
+  regression_formula <- as.formula(paste("diff_trait2 ~ diff_trait1"))
+  fit <- lm(regression_formula, data = filtered_sisters)
+  #fit_summary <- summary(fit)
+  
+  boot_results <- boot(filtered_sisters, statistic = function(data, indices) {
+    coef(lm(diff_trait2 ~ diff_trait1, data = data[indices, ]))
+  }, R = numBootstraps)
+  
+  ci_intercept <- boot.ci(boot_results, type = "bca", index = 1)
+  ci_slope <- boot.ci(boot_results, type = "bca", index = 2)
+  
+  cor_test <- cor.test(filtered_sisters$diff_trait1, filtered_sisters$diff_trait2)
+  
+  # Plotting
+  par(mfrow = c(2, 2))  # Set up the plotting area
+  
+  # Scatter plot with regression line and bootstrapped lines
+  plot(filtered_sisters$diff_trait1, filtered_sisters$diff_trait2, main = "Scatter Plot of Trait Differences",
+       xlab = paste("Difference in", trait1), ylab = paste("Difference in", trait2), pch = 19)
+  abline(fit, col = "red", lwd = 2, lty=2)
+  apply(boot_results$t, 1, function(coef) {
+    abline(coef[1], coef[2], col = rgb(1, 0, 0, 0.01))  # Slight transparency for bootstrap lines
+  })
+  
+  # Histograms of differences
+  hist(filtered_sisters$diff_trait1, main = paste("Histogram of Differences in", trait1),
+       xlab = paste("Difference in", trait1), col = "blue", border = "white")
+  hist(filtered_sisters$diff_trait2, main = paste("Histogram of Differences in", trait2),
+       xlab = paste("Difference in", trait2), col = "green", border = "white")
+  
+  # Residuals plot
+  #plot(fit$fitted.values, fit$residuals, main = "Residuals Plot", xlab = "Fitted Values", ylab = "Residuals", pch = 19)
+  #abline(h = 0, col = "red", lwd = 2)
+  
+  # Normal Q-Q plot for residuals
+  qqnorm(fit$residuals, main = "Normal Q-Q Plot of Residuals", pch = 19)
+  qqline(fit$residuals, col = "red", lwd = 2, lty=2)
+  
+  # Return results and model including bootstrap confidence intervals
+  return(list(fit = fit, cor_test = cor_test, data = filtered_sisters, bootstrap = boot_results, CI_intercept = ci_intercept, CI_slope = ci_slope))
+}
+
+#estimate CI from mean and variance
+estimate_mean_ci <- function(means, variances, sample_size = 100, confidence_level = 0.95) {
+  # Initialize a data frame to store the results
+  ci_results <- data.frame(mean = numeric(), input_variance = numeric(), ci_lower = numeric(), ci_upper = numeric())
+  
+  # Loop over each mean and variance pair
+  for (i in seq_along(means)) {
+    # Calculate the standard error of the mean
+    standard_error <- sqrt(variances[i] / sample_size)
+    
+    # Calculate the critical Z-score for the specified confidence level
+    z_score <- qnorm(1 - (1 - confidence_level) / 2)
+    
+    # Calculate the confidence intervals
+    ci_lower <- means[i] - z_score * standard_error
+    ci_upper <- means[i] + z_score * standard_error
+    
+    # Append results to the data frame
+    ci_results <- rbind(ci_results, data.frame(mean = means[i], input_variance = variances[i], ci_lower = ci_lower, ci_upper = ci_upper))
+  }
+  
+  # Return the data frame of confidence intervals
+  return(ci_results)
+}
+
+
+#experimental
+
+# Define the function to test for the Fitch-Beintema artifact
+testFitchBeintema <- function(phy) {
+  if (!inherits(phy, "phylo")) {
+    stop("The input must be a phylogenetic tree of class 'phylo'.")
+  }
+  
+  cat("Calculating path lengths...\n")
+  path_lengths <- diag(vcv(phy))
+  
+  cat("Retrieving node paths from the root to each tip...\n")
+  node_paths <- nodepath(phy)
+  
+  cat("Counting nodes along each path...\n")
+  node_counts <- sapply(node_paths, length) - 1
+  
+  data <- data.frame(
+    NodeCounts = node_counts,  # x variable (speciation events from root)
+    TotalPathLength = path_lengths  # y variable (genetic distance to root)
+  )
+  
+  cat("Fitting the nonlinear model TotalPathLength = a * NodeCounts^delta...\n")
+  model <- nls(TotalPathLength ~ a^(-1/delta) * NodeCounts^(1/delta), data = data, 
+               start = list(a = 1, delta = 1), trace = TRUE, control = nls.control(maxiter = 10000, minFactor = 1e-5))
+  
+  cat("Generating plot...\n")
+  plot(data$NodeCounts, data$TotalPathLength, main = "Number of Nodes vs Genetic Distance",
+       xlab = "Number of Speciation Events", ylab = "Genetic Distance to Root", pch = 19, col = 'blue', 
+       xlim=c(0, max(data$NodeCounts)), 
+       ylim=c(0, max(data$TotalPathLength)))
+  
+  # Generate a sequence of x values for plotting the model
+  xvals <- seq(0, max(data$NodeCounts), length.out = 100)
+  
+  # Predict the TotalPathLength from the model
+  preds <- predict(model, newdata = data.frame(NodeCounts = xvals))
+  
+  # Plot the model predictions
+  lines(xvals, preds, col = 'red', lwd = 2)
+  
+  return(list(model = model, summary = summary(model)))
+}
+
+# Define the function to test for the Fitch-Beintema artifact
+testFitchBeintemaNLME <- function(phy) {
+  if (!inherits(phy, "phylo")) {
+    stop("The input must be a phylogenetic tree of class 'phylo'.")
+  }
+  
+  cat("Calculating path lengths...\n")
+  path_lengths <- diag(vcv(phy))
+  
+  cat("Retrieving node paths from the root to each tip...\n")
+  node_paths <- nodepath(phy)
+  
+  cat("Counting nodes along each path...\n")
+  node_counts <- sapply(node_paths, length) - 1
+  
+  data <- data.frame(
+    TotalPathLength = path_lengths,
+    NodeCounts = node_counts
+  )
+  
+  cat("Fitting the nonlinear mixed-effects model...\n")
+  
+  # Define initial values for parameters
+  initial_values <- c(beta = 1, delta = 1, intercept = 0)
+  
+  # Define the fixed effects formula
+  fixed_formula <- NodeCounts ~ beta * TotalPathLength^(1/delta) + intercept
+  
+  # Define the random effects structure
+  random_formula <- pdDiag(beta + delta + intercept ~ 1)
+  
+  # Incorporating the phylogenetic correlation
+  phylo_correlation <- corPagel(1, phy)
+  
+  # Fit the model using nlme
+  fitted_model <- nlme(
+    model = fixed_formula,
+    data = data,
+    fixed = fixed_formula,
+    random = random_formula,
+    start = initial_values,
+    correlation = phylo_correlation
+  )
+  
+  # Print the model summary
+  model_summary <- summary(fitted_model)
+  print(model_summary)
+  
+  cat("Generating plot...\n")
+  plot(TotalPathLength ~ NodeCounts, data = data, 
+       main = "Node Counts vs Total Path Length", 
+       xlab = "Total Path Length", ylab = "Node Counts", pch = 19, col = 'blue')
+  
+  # Generate predictions for a sequence of path lengths
+  fitted_values <- predict(fitted_model, newdata = data)
+  
+  lines(data$TotalPathLength, fitted_values, col = 'red', lwd = 2)
+  
+  return(list(model = fitted_model, summary = model_summary))
+}
