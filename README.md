@@ -1,7 +1,7 @@
 
 # Supplementary data files
 
-## Habitat-associated evolutionary rates in deep-sea chemosynthetic invertebrates
+## Habitat-associated evolutionary rates in deep-sea invertebrates
 
 Author details:
 Amelia K. Weiss (1), Jacob S. Berv (2,3)
