@@ -2,8 +2,8 @@
 AICc.phylolm<-function(mod, return.K = FALSE, second.ord = TRUE, nobs = NULL, ...){
   
   if(identical(nobs, NULL)) {n <- length(mod$residuals)} else {n <- nobs}
-  LL <- logLik(mod)$logLik
-  K <- logLik(mod)$df  #extract correct number of parameters included in model - this includes LM
+  LL <- mod$logLik
+  K <- attr(logLik(mod), "df")  #extract correct number of parameters included in model - this includes LM
   if(second.ord == TRUE) {AICc <- -2*LL+2*K*(n/(n-K-1))}  else{AICc <- -2*LL+2*K}
   if(return.K == TRUE) AICc[1] <- K #attributes the first element of AICc to K
   return(AICc)
@@ -803,4 +803,45 @@ testFitchBeintemaNLME <- function(phy) {
   lines(data$TotalPathLength, fitted_values, col = 'red', lwd = 2)
   
   return(list(model = fitted_model, summary = model_summary))
+}
+
+generate_distance_dataframe <- function(dna_dist, tree_dist) {
+  # Convert `dist` object to matrix
+  dna_dist_matrix <- as.matrix(dna_dist)
+  tree_dist_matrix <- as.matrix(tree_dist)
+  
+  # Get the common labels
+  common_labels <- intersect(rownames(tree_dist_matrix), attr(dna_dist, "Labels"))
+  
+  # Subset matrices to the common labels
+  dna_dist_subset <- dna_dist_matrix[common_labels, common_labels]
+  tree_dist_subset <- tree_dist_matrix[common_labels, common_labels]
+  
+  # Initialize vectors to store results
+  pair_1 <- vector()
+  pair_2 <- vector()
+  dna_distances <- vector()
+  tree_distances <- vector()
+  
+  # Loop through upper triangular part of the matrix to extract pairs and distances
+  for (i in 1:(length(common_labels) - 1)) {
+    for (j in (i + 1):length(common_labels)) {
+      name_1 <- common_labels[i]
+      name_2 <- common_labels[j]
+      pair_1 <- c(pair_1, name_1)
+      pair_2 <- c(pair_2, name_2)
+      dna_distances <- c(dna_distances, dna_dist_subset[name_1, name_2])
+      tree_distances <- c(tree_distances, tree_dist_subset[name_1, name_2])
+    }
+  }
+  
+  # Create data frame
+  distance_df <- data.frame(
+    Pair1 = pair_1,
+    Pair2 = pair_2,
+    DNA_Distance = dna_distances,
+    Tree_Distance = tree_distances
+  )
+  
+  return(distance_df)
 }

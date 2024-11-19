@@ -444,7 +444,6 @@ names(x.constrained) == names(y.constrained)
 #####
 }
 
-
 #generate congruified tree
 {
 YuanningLe<-read.tree("~/jsb439@cornell.edu/amelia-bivalves/tubeworms/constraint_2_19_22.tre")
@@ -507,7 +506,6 @@ congruify.unconstrained<-congruify.phylo(YuanningLe, prunetree.unconstrained, ta
 #testFitchBeintema(prunetree.constrained)
 #testFitchBeintema(prunetree.unconstrained)
 #testFitchBeintemaNLME(prunetree.unconstrained)
-
 
 #checking for node density artifact
 path_lengths <- diag(vcv(prunetree.constrained))
@@ -629,6 +627,44 @@ summary(lm(node_data$TotalPathLength ~ node_data$NodeCounts))
   # 
 }
 
+#checking genetic distances
+{
+  require(phangorn)
+  #dna.dist<-dist.ml(phyDat(fas, type='DNA')  , model = "F81")
+  dna.dist<-dist.dna(fas, model = "F81")
+  #str(dna.dist)
+  tree.dist<-cophenetic.phylo(prunetree.constrained)
+  #str(tree.dist)
+  dist.comp<-generate_distance_dataframe(dna_dist=dna.dist, tree_dist=tree.dist)
+  plot(log(dist.comp$DNA_Distance)~log(dist.comp$Tree_Distance))
+  # Remove rows with NA, Inf, or undefined values
+  cleaned_dist_comp <- dist.comp[complete.cases(dist.comp) & 
+                                   is.finite(log(dist.comp$DNA_Distance)) & 
+                                   is.finite(log(dist.comp$Tree_Distance)), ]
+  
+  # Retain only unique pairs of distances
+  unique_dist_comp <- cleaned_dist_comp[!duplicated(t(apply(cleaned_dist_comp[, c("DNA_Distance", "Tree_Distance")], 1, sort))), ]
+  
+  # Fit the linear model using unique pairs
+  lm_model <- lm(log(DNA_Distance) ~ log(Tree_Distance), data = unique_dist_comp)
+  
+  # Display the summary of the linear model
+  summary(lm_model)
+  
+  # Plot the data
+  plot(log(unique_dist_comp$DNA_Distance) ~ log(unique_dist_comp$Tree_Distance),
+       main = "Log-Log Plot of DNA vs Tree Distances (Unique Pairs)",
+       xlab = "Log(Tree Distance)",
+       ylab = "Log(DNA Distance)")
+  abline(lm_model, col = "red", lwd = 2)
+  
+  # Fit the linear model
+  lm_model <- lm(log(DNA_Distance) ~ log(Tree_Distance), data = cleaned_dist_comp)
+  summary(lm_model)
+  #0.9046
+  
+}
+
 #processing traitrate output
 {
   #read in traitRate results
@@ -673,7 +709,6 @@ summary(lm(node_data$TotalPathLength ~ node_data$NodeCounts))
                                  model="ARD", nsim=100)
   traitRate3.simmap.obj<-densityMap(traitRate3.simmap,states=levels(setNames(trait3$trait, rownames(trait3)))[2:1],plot=FALSE)
 }
-
 
 require('WGCNA')
 #code to generate traitRate plots
@@ -1021,7 +1056,6 @@ boxplot((log(y.constrained))~x.constrained, varwidth=T)
 
 #running the generalized least squares version instead of anova (but it's the same thing)
 #setting up datastets
-
 {
   library(ape)
   library(nlme)
@@ -1189,7 +1223,6 @@ summary(phyl.aov.geiger.test)
   # #geo.legend(leg=obj$leg,colors=obj$colors,cex=1.2, alpha=0.2)
   # par(new=T)
 }
-
 
 #plot SIMMAP - constrained BLs
 {
@@ -1375,7 +1408,6 @@ summary(phyl.aov.geiger.test)
   
   dev.off()
 }
-
 
 #plot SIMMAP - unconstrained BLs #DOES NOT WORK WITH EDGE MATCHING CURRENTLY
 {
@@ -1856,11 +1888,8 @@ nodes<-unlist(lapply(setNames(nodepath(prunetree.constrained.time), prunetree.co
 phyl.aov.geiger.test<-aov.phylo(anov.y ~ anov.x, prunetree.constrained.time, nsim=1000)
 attr(phyl.aov.geiger.test, "summary")
 
-
 brmsdata<-data.frame(rate=anov.y, habitat=anov.x, size=anov.z, species=names(anov.y), nodecounts=log(nodes))
-
 plot(brmsdata$rate~ brmsdata$nodecounts)
-
 
 require(phylolm)
 #set up for rr2 and phylolm -- only for constrained
@@ -2074,7 +2103,6 @@ require(phylolm)
   
 }
 
-
 #plot(rate ~ habitat, data=brmsdata)
 require(ggthemes)
 require(ggplot2)
@@ -2103,7 +2131,6 @@ pglsdata$habitat<-ordered(pglsdata$habitat, levels=c('OF', 'Vent', 'Seep'))
 # 
 # dev.off()
 # }
-
 {
   pp <-
     ggplot(pglsdata, aes(habitat, r2t.log)) + geom_boxplot(
@@ -2137,7 +2164,6 @@ pglsdata$habitat<-ordered(pglsdata$habitat, levels=c('OF', 'Vent', 'Seep'))
   dev.off()
 }
 
-
 #boxplots for constrained
 #phyl.aov.unconstrained
 # {
@@ -2160,8 +2186,6 @@ pglsdata$habitat<-ordered(pglsdata$habitat, levels=c('OF', 'Vent', 'Seep'))
 #   
 #   dev.off()
 # }
-
-
 {
   pp <-
     ggplot(pglsdata, aes(habitat, r2t.unconstrained.log)) + geom_boxplot(
@@ -2235,7 +2259,6 @@ brmsdata$habitat<-factor(brmsdata$habitat, levels=c("OF", "Vent", "Seep"))
 # Vent 0.466 0.466 1.000
 # ---------
 
-
 {
   pp <-
     ggplot(brmsdata, aes(habitat, size)) + geom_boxplot(
@@ -2278,7 +2301,7 @@ brmsdata$habitat<-factor(brmsdata$habitat, levels=c("OF", "Vent", "Seep"))
 }
 
 #write output for amelia
-write.table(pglsdata, file='data.csv', quote = F, sep = ",")
+#write.table(pglsdata, file='data.csv', quote = F, sep = ",")
 
 ## checking variances of bootstrap trees
 fit<-lm(log(compute_summary_stats(CO1_ML.constrained.boottrees)$Mean)~log(compute_summary_stats(CO1_ML.constrained)$Mean))
@@ -2290,5 +2313,3 @@ plot(log(compute_summary_stats(CO1_ML.unconstrained.boottrees)$Mean)~log(compute
 summary(fit)
 
 median(compute_summary_stats(CO1_ML.constrained.boottrees)$CV)
-
-
