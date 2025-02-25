@@ -4,15 +4,15 @@
 ## Habitat-associated evolutionary rates in deep-sea invertebrates
 
 Author details:
-Amelia K. Weiss (1), Jacob S. Berv (2,3)
+Authors: Amelia K. Weiss (1), Jacob S. Berv (1, 2, 3, 4, 5)
 
-Corresponding author: Amelia K. Weiss
+Corresponding author: Amelia K. Weiss, ameliakw411@gmail.com
 
-Author affiliations:
-
-1.	Department of Ecology and Evolutionary Biology, 215 Tower Road, Corson Hall, Ithaca, NY 14850, USA
-2.	Department of Ecology and Evolutionary Biology, 1105 North University Avenue, Biological Sciences Building, Ann Arbor, MI 48109-1085, USA
-3.	University of Michigan Museum of Paleontology, 1105 North University Avenue, Biological Sciences Building, Ann Arbor, MI 48109-1085, USA
+1)	Department of Ecology and Evolutionary Biology, Cornell University, 215 Tower Road, Ithaca, NY 14850, USA.
+2)	Department of Ecology and Evolutionary Biology, University of Michigan, 1105 North University Avenue, Biological Sciences Building, University of Michigan, Ann Arbor, MI 48109, USA.
+3)	Museum of Paleontology, University of Michigan, 1105 North University Avenue, Biological Sciences Building, University of Michigan, Ann Arbor, MI, 48109, USA.
+4)	Museum of Zoology, University of Michigan, 1105 North University Avenue, Biological Sciences Building, University of Michigan, Ann Arbor, MI, 48109, USA.
+5)	Michigan Institute for Data Science and AI in Society, 500 Church Street, Weiser Hall, Suite 600, Ann Arbor, MI 48109, USA.
 
 File descriptions:
 

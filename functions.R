@@ -331,11 +331,11 @@ z_transform<-function(data){
 }
 
 # Interface to traitRate program (Mayrose & Otto, 2011)
+{
 # PACKAGE: ips
 # CALLED BY: user
 # AUTHOR: Christoph Heibl
 # LAST UPDATE: 2014-08-07
-
 traitRate <- function(phy, seq, x, mainType = "Optimize_Model", n,
                       charModelParam1 = 0.5, charModelParam2 = 1, 
                       gammaParam = 0.5, seqModelParam1 = 2,
@@ -479,7 +479,7 @@ traitRateOutput <- function(file, what = "likelihoods"){
   }
   res
 }
-
+}
 
 #https://raw.githubusercontent.com/evolucionario/fossilgraft/master/fossil.graft
 fossil.graft <- function(phy, tip, fossil, fossil.age, edge.rel.length=0.5) {
