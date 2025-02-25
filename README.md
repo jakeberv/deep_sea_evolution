@@ -3,6 +3,8 @@
 
 ## Habitat-associated evolutionary rates in deep-sea invertebrates
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14927706.svg)](https://doi.org/10.5281/zenodo.14927706)
+
 Author details:
 Authors: Amelia K. Weiss (1), Jacob S. Berv (1, 2, 3, 4, 5)
 
